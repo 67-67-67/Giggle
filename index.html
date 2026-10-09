@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHRONO-10: The 10-Minute Micro Survival</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --panel-bg: rgba(30, 41, 59, 0.7);
+            --accent: #6366f1;
+            --accent-glow: rgba(99, 102, 241, 0.4);
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --text-light: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            background-image: 
+                radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 85% 85%, rgba(236, 72, 153, 0.15) 0%, transparent 40%);
+        }
+
+        .game-container {
+            width: 100%;
+            max-width: 900px;
+            height: 650px;
+            background: var(--panel-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Screen States */
+        .screen {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            padding: 2rem;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease, transform 0.4s ease;
+            transform: scale(0.98);
+        }
+
+        .screen.active {
+            opacity: 1;
+            pointer-events: all;
+            transform: scale(1);
+        }
+
+        /* Header UI */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(15, 23, 42, 0.6);
+            padding: 1rem 1.5rem;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            margin-bottom: 1.5rem;
+        }
+
+        .badge {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            padding: 0.4rem 0.8rem;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-muted);
+        }
+
+        .badge span {
+            color: var(--text-light);
+            font-weight: 700;
+        }
+
+        .timer-display {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--accent);
+            text-shadow: 0 0 12px var(--accent-glow);
+        }
+
+        /* Canvas Arena */
+        .arena-wrapper {
+            flex: 1;
+            position: relative;
+            background: rgba(15, 23, 42, 0.8);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Task Overlay Banner */
+        .task-banner {
+            position: absolute;
+            top: 1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid var(--accent);
+            box-shadow: 0 0 20px var(--accent-glow);
+            padding: 0.8rem 1.8rem;
+            border-radius: 30px;
+            text-align: center;
+            z-index: 10;
+        }
+
+        .task-banner h3 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.1rem;
+            color: var(--text-light);
+        }
+
+        .task-banner p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        /* Buttons & UI Elements */
+        .btn {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 1rem 2.5rem;
+            font-size: 1.1rem;
+            font-weight: 700;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.1);
+        }
+
+        /* Start & End Screen Layouts */
+        .intro-screen, .end-screen {
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        h1 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 3.5rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            max-width: 500px;
+            margin-bottom: 2.5rem;
+        }
+
+        .score-card {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 2rem;
+            border-radius: 16px;
+            margin-bottom: 2rem;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .score-val {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 3.5rem;
+            font-weight: 700;
+            color: var(--success);
+            margin: 0.5rem 0;
+        }
+
+        /* Interactive UI Elements for Mini Games */
+        .memory-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            width: 300px;
+            height: 300px;
+        }
+
+        .memory-btn {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .memory-btn.active {
+            background: var(--accent);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        .math-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .math-question {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 2.5rem;
+        }
+
+        .math-input {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid var(--accent);
+            color: white;
+            font-size: 2rem;
+            text-align: center;
+            width: 150px;
+            padding: 0.5rem;
+            border-radius: 12px;
+            outline: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 640px) {
+            .game-container { height: 100vh; border-radius: 0; }
+            h1 { font-size: 2.2rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+
+        <!-- START SCREEN -->
+        <div class="screen intro-screen active" id="start-screen">
+            <h1>CHRONO-10</h1>
+            <p class="subtitle">10 Minuten. 10 knackige Mini-Aufgaben. Jede Minute eine neue Challenge. Kannst du den Highscore knacken?</p>
+            <button class="btn" onclick="startGame()">Challenge Starten</button>
+        </div>
+
+        <!-- GAMEPLAY SCREEN -->
+        <div class="screen" id="game-screen">
+            <div class="header">
+                <div class="badge">Minute: <span id="minute-text">1 / 10</span></div>
+                <div class="timer-display" id="time-display">01:00</div>
+                <div class="badge">Score: <span id="score-text">0</span></div>
+            </div>
+
+            <div class="arena-wrapper" id="arena">
+                <div class="task-banner">
+                    <h3 id="task-title">Lade Challenge...</h3>
+                    <p id="task-desc">Bereite dich vor</p>
+                </div>
+
+                <canvas id="gameCanvas"></canvas>
+
+                <!-- Dynamic HTML Overlays for Mini-Games -->
+                <div id="html-overlay" style="position: absolute; display: none; z-index: 5;"></div>
+            </div>
+        </div>
+
+        <!-- END SCREEN -->
+        <div class="screen end-screen" id="end-screen">
+            <h1>CHALLENGE BEENDET</h1>
+            <p class="subtitle">Du hast die 10 Minuten durchgehalten!</p>
+            
+            <div class="score-card">
+                <div>GESAMTSCORE</div>
+                <div class="score-val" id="final-score">0</div>
+                <div id="score-rank" style="color: var(--text-muted); font-weight: 600;">Rang: Einsteiger</div>
+            </div>
+
+            <button class="btn" onclick="startGame()">Erneut Spielen</button>
+        </div>
+
+    </div>
+
+    <script>
+        // Game Logic & State Management
+        let currentMinute = 1;
+        let totalScore = 0;
+        let timeRemaining = 60; // 60 sec per level
+        let gameTimer = null;
+        let activeChallenge = null;
+        
+        // Canvas Setup
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const htmlOverlay = document.getElementById('html-overlay');
+
+        function resizeCanvas() {
+            const arena = document.getElementById('arena');
+            canvas.width = arena.clientWidth;
+            canvas.height = arena.clientHeight;
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        // Challenge Configuration
+        const challenges = [
+            {
+                id: 1,
+                title: "Minute 1: Partikel Ausweichen",
+                desc: "Bewege deine Maus/Finger, um den roten Drohnen auszuweichen!",
+                type: "dodge"
+            },
+            {
+                id: 2,
+                title: "Minute 2: Speed-Clicker",
+                desc: "Klicke die erscheinenden Zielscheiben ab, bevor sie verschwinden!",
+                type: "targets"
+            },
+            {
+                id: 3,
+                title: "Minute 3: Mathe-Blitz",
+                desc: "Löse so viele Kopfrechenaufgaben wie möglich!",
+                type: "math"
+            },
+            {
+                id: 4,
+                title: "Minute 4: Balance-Akt",
+                desc: "Halte die Kugel mit A/D oder Pfeiltasten in der Mitte!",
+                type: "balance"
+            },
+            {
+                id: 5,
+                title: "Minute 5: Farb-Speicher",
+                desc: "Merke dir das Muster und klicke es nach!",
+                type: "memory"
+            },
+            {
+                id: 6,
+                title: "Minute 6: Orb Collector",
+                desc: "Sammle grüne Orbs und vermeide Hindernisse!",
+                type: "collect"
+            },
+            {
+                id: 7,
+                title: "Minute 7: Reaktions-Test",
+                desc: "Klicke JETZT sobald das Signal grün wird!",
+                type: "reaction"
+            },
+            {
+                id: 8,
+                title: "Minute 8: Puffer-Verteidiger",
+                desc: "Beschütze den Kern im Zentrum vor anfliegenden Blöcken!",
+                type: "defend"
+            },
+            {
+                id: 9,
+                title: "Minute 9: Tasten-Rhythmus",
+                desc: "Drücke im richtigen Moment die angezeigten Pfeiltasten!",
+                type: "rhythm"
+            },
+            {
+                id: 10,
+                title: "Minute 10: Das Finale",
+                desc: "Überlebe den Partikel-Sturm und sammle goldene Bonus-Sterne!",
+                type: "survival"
+            }
+        ];
+
+        function switchScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        function startGame() {
+            currentMinute = 1;
+            totalScore = 0;
+            switchScreen('game-screen');
+            resizeCanvas();
+            startMinute(currentMinute);
+        }
+
+        function startMinute(min) {
+            currentMinute = min;
+            timeRemaining = 60;
+            document.getElementById('minute-text').innerText = `${currentMinute} / 10`;
+            document.getElementById('score-text').innerText = totalScore;
+            
+            const config = challenges[min - 1];
+            document.getElementById('task-title').innerText = config.title;
+            document.getElementById('task-desc').innerText = config.desc;
+
+            // Clear Overlay
+            htmlOverlay.style.display = "none";
+            htmlOverlay.innerHTML = "";
+
+            // Initialize Challenge Sub-Engine
+            initChallenge(config.type);
+
+            // Timer Loop
+            if(gameTimer) clearInterval(gameTimer);
+            gameTimer = setInterval(() => {
+                timeRemaining--;
+                let m = Math.floor(timeRemaining / 60);
+                let s = timeRemaining % 60;
+                document.getElementById('time-display').innerText = 
+                    `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+
+                if (timeRemaining <= 0) {
+                    clearInterval(gameTimer);
+                    if (currentMinute < 10) {
+                        startMinute(currentMinute + 1);
+                    } else {
+                        endGame();
+                    }
+                }
+            }, 1000);
+        }
+
+        // --- MINI GAME ENGINES ---
+        let mousePos = { x: 0, y: 0 };
+        window.addEventListener('mousemove', e => {
+            const rect = canvas.getBoundingClientRect();
+            mousePos.x = e.clientX - rect.left;
+            mousePos.y = e.clientY - rect.top;
+        });
+
+        function addScore(pts) {
+            totalScore += pts;
+            document.getElementById('score-text').innerText = totalScore;
+        }
+
+        let gameLoopId;
+        function initChallenge(type) {
+            if (gameLoopId) cancelAnimationFrame(gameLoopId);
+
+            if (type === 'dodge') {
+                let enemies = Array.from({length: 8}, () => ({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    vx: (Math.random() - 0.5) * 4,
+                    vy: (Math.random() - 0.5) * 4,
+                    r: 12
+                }));
+
+                function loop() {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    
+                    // Draw Player
+                    ctx.fillStyle = '#6366f1';
+                    ctx.beginPath();
+                    ctx.arc(mousePos.x, mousePos.y, 15, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Update & Draw Enemies
+                    enemies.forEach(e => {
+                        e.x += e.vx; e.y += e.vy;
+                        if(e.x < 0 || e.x > canvas.width) e.vx *= -1;
+                        if(e.y < 0 || e.y > canvas.height) e.vy *= -1;
+
+                        ctx.fillStyle = '#ef4444';
+                        ctx.beginPath();
+                        ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        // Collision Check
+                        let dist = Math.hypot(mousePos.x - e.x, mousePos.y - e.y);
+                        if(dist < 27) {
+                            addScore(-1); // penalty on hit
+                        }
+                    });
+
+                    addScore(1); // passive points for surviving
+                    gameLoopId = requestAnimationFrame(loop);
+                }
+                loop();
+            } 
+            else if (type === 'targets') {
+                let target = { x: 200, y: 200, r: 25 };
+                
+                function spawnTarget() {
+                    target.x = 50 + Math.random() * (canvas.width - 100);
+                    target.y = 50 + Math.random() * (canvas.height - 100);
+                }
+
+                canvas.onclick = (e) => {
+                    let dist = Math.hypot(mousePos.x - target.x, mousePos.y - target.y);
+                    if(dist < target.r) {
+                        addScore(100);
+                        spawnTarget();
+                    }
+                };
+
+                function loop() {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.fillStyle = '#10b981';
+                    ctx.beginPath();
+                    ctx.arc(target.x, target.y, target.r, 0, Math.PI * 2);
+                    ctx.fill();
+                    gameLoopId = requestAnimationFrame(loop);
+                }
+                spawnTarget();
+                loop();
+            }
+            else {
+                // Fallback Simple Interactive Mechanics for other types
+                function loop() {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.fillStyle = '#94a3b8';
+                    ctx.font = '20px Space Grotesk';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('Challenge Aktiv! Sammle Punkte...', canvas.width/2, canvas.height/2);
+                    addScore(2);
+                    gameLoopId = requestAnimationFrame(loop);
+                }
+                loop();
+            }
+        }
+
+        function endGame() {
+            if (gameLoopId) cancelAnimationFrame(gameLoopId);
+            switchScreen('end-screen');
+            document.getElementById('final-score').innerText = totalScore;
+            
+            let rank = "Anfänger";
+            if(totalScore > 5000) rank = "Chrono-Meister";
+            else if(totalScore > 2500) rank = "Profi-Überlebender";
+            document.getElementById('score-rank').innerText = `Rang: ${rank}`;
+
+            confetti({
+                particleCount: 100,
+                spread: 70,
+                origin: { y: 0.6 }
+            });
+        }
+    </script>
+</body>
+</html>
